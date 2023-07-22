@@ -67,5 +67,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                  0.5 + 0.5 * cos(data.iTime + in.tex_coords.y + 2.0),
                  0.5 + 0.5 * cos(data.iTime + in.tex_coords.x + 4.0),
                  1.0
-            );
+            ) * textureSample(t_diffuse, s_diffuse, in.tex_coords);
 }
