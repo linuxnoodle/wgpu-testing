@@ -83,10 +83,10 @@ fn vs_main(
         world_normal,
     ));
 
-    let world_position = model_matrix * vec4<f32>(model.position, 1.0);
+    let world_position = model_matrix * rotation.rot_mat * vec4<f32>(model.position, 1.0);
 
     var out: VertexOutput;
-    out.clip_position = rotation.rot_mat * camera.view_proj * world_position;
+    out.clip_position = camera.view_proj * world_position;
     out.tex_coords = model.tex_coords;
     out.tangent_position = tangent_matrix * world_position.xyz;
     out.tangent_view_position = tangent_matrix * camera.view_pos.xyz;

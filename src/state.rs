@@ -537,7 +537,7 @@ impl State {
             self.pos = (*position).into();
             return true;
         }*/
-        match event {
+        (match event {
             WindowEvent::KeyboardInput {
                 input:
                     KeyboardInput {
@@ -560,7 +560,7 @@ impl State {
                 true
             }
             _ => false,
-        }
+        }) || self.rotation_controller.process_events(event)
     }
     pub fn update(&mut self, dt: instant::Duration) {
         self.camera_controller.update_camera(&mut self.camera, dt);
