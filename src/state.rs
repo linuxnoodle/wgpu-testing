@@ -95,11 +95,10 @@ impl DataUniform {
             time: 0.0,
         }
     }
-    pub fn update(&mut self, last_time: &mut std::time::Instant) {
+    pub fn update(&mut self, delta_time: f32) {
         self.frame += 1;
-        self.delta_time = last_time.elapsed().as_secs_f32();
+        self.delta_time = delta_time;
         self.time += self.delta_time;
-        *last_time = std::time::Instant::now();
     }
 }
 
@@ -127,12 +126,13 @@ pub struct State {
     pub data_uniform: DataUniform,
     pub data_buffer: wgpu::Buffer,
     pub data_bind_group: wgpu::BindGroup,
-    pub last_time: std::time::Instant,
     pub depth_texture: Texture,
     pub obj_model: Model,
     pub light_uniform: LightUniform,
     pub light_buffer: wgpu::Buffer,
     pub light_bind_group: wgpu::BindGroup,
+    pub projection: Projection,
+    pub mouse_pressed: bool,
 }
 
 impl State {
@@ -202,24 +202,34 @@ impl State {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
                 label: Some("texture_bind_group_layout"),
             });
 
         let pos = (0.0, 0.0);
 
-        let camera = Camera {
-            eye: (0.0, 1.0, 2.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: (0.0, 1.0, 0.0).into(),
-            aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0,
-        };
+        let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let projection = Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_controller = CameraController::new(4.0, 1.0);
 
         let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
+        camera_uniform.update_view_proj(&camera, &projection);
 
         let camera_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -235,7 +245,7 @@ impl State {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -303,9 +313,8 @@ impl State {
             }
         );
 
-        let mut last_time = std::time::Instant::now();
         let mut data_uniform = DataUniform::new();
-        data_uniform.update(&mut last_time);
+        data_uniform.update(0.0);
 
         let data_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -443,7 +452,6 @@ impl State {
             render_pipeline,
             light_render_pipeline,
         ];
-        let camera_controller = CameraController::new(10.0);
         let rotation_controller = RotationController::new(100.0);
 
         const SPACE_BETWEEN: f32 = 3.0;
@@ -502,18 +510,20 @@ impl State {
             data_uniform,
             data_buffer,
             data_bind_group,
-            last_time, 
             depth_texture,
             obj_model,
             light_uniform,
             light_buffer,
             light_bind_group,
+            projection,
+            mouse_pressed: false,
         }
     }
     pub fn window(&self) -> &Window {
         &self.window
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.projection.resize(new_size.width, new_size.height);
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
@@ -527,24 +537,47 @@ impl State {
             self.pos = (*position).into();
             return true;
         }*/
-        self.camera_controller.process_events(event) || self.rotation_controller.process_events(event)
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state,
+                        ..
+                    },
+                ..
+            } => self.camera_controller.process_keyboard(*key, *state),
+            WindowEvent::MouseWheel { delta, .. } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                self.mouse_pressed = *state == ElementState::Pressed;
+                true
+            }
+            _ => false,
+        }
     }
-    pub fn update(&mut self) {
-        self.camera_controller.update_camera(&mut self.camera, self.data_uniform.delta_time);
-        self.camera_uniform.update_view_proj(&self.camera);
+    pub fn update(&mut self, dt: instant::Duration) {
+        self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_uniform.update_view_proj(&self.camera, &self.projection);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         ); 
-        self.rotation_controller.update_matrix(&mut self.rotation, self.data_uniform.delta_time);
+        self.rotation_controller.update_matrix(&mut self.rotation, dt.as_secs_f32());
         self.rotation_uniform.update_rotation(&self.rotation);
         self.queue.write_buffer(
             &self.rotation_buffer,
             0,
             bytemuck::cast_slice(&[self.rotation_uniform]),
         );
-        self.data_uniform.update(&mut self.last_time);
+        self.data_uniform.update(dt.as_secs_f32());
         self.queue.write_buffer(
             &self.data_buffer,
             0,
@@ -555,7 +588,7 @@ impl State {
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
         self.light_uniform.position =
             (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), 
-             cgmath::Deg(200.0 * self.data_uniform.delta_time))
+             cgmath::Deg(60.0 * dt.as_secs_f32()))
                 * old_position)
                 .into();
         self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light_uniform]));
@@ -576,9 +609,9 @@ impl State {
                     ops: wgpu::Operations {
                         // set color based on mouse position
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: self.pos.0 as f64 / self.size.width as f64,
-                            g: self.pos.1 as f64 / self.size.height as f64,
-                            b: 1.0,
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0, 
                         }),
                         store: true,
@@ -605,7 +638,6 @@ impl State {
                     &self.light_bind_group,
                 ]
             );
-
 
             render_pass.set_pipeline(&self.render_pipelines[0]);
             render_pass.draw_model_instanced(
