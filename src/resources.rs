@@ -2,7 +2,6 @@ use std::io::{BufReader, Cursor};
 use wgpu::util::DeviceExt;
 
 use crate::{model, texture};
-use crate::model::Material;
 
 /*#[cfg(target_arch = "wasm32")]
 fn format_url(file_name: &str) -> reqwest::Url {
@@ -74,8 +73,67 @@ pub async fn load_model(
 
     let mut materials = Vec::new();
     for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, false, device, queue).await?;
-        let normal_texture = load_texture(&m.normal_texture, true, device, queue).await?;
+        let diffuse_texture: texture::Texture;
+        let normal_texture: texture::Texture; 
+        if !&m.diffuse_texture.is_empty() {
+            diffuse_texture = load_texture(&m.diffuse_texture, false, device, queue).await?;
+        } else {
+            diffuse_texture = load_texture("troll.png", false, device, queue).await?;
+        }
+        
+        if !&m.normal_texture.is_empty(){
+            normal_texture = load_texture(&m.normal_texture, true, device, queue).await?;
+        } else {
+            let size = wgpu::Extent3d {
+                            width: diffuse_texture.texture.width(),
+                            height: diffuse_texture.texture.height(),
+                            depth_or_array_layers: 1,
+                        };
+            let txture = device.create_texture( &wgpu::TextureDescriptor {
+                            label: Some("Placeholder"),
+                            size,                      mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: wgpu::TextureDimension::D2,
+                            format:  wgpu::TextureFormat::Rgba8Unorm,
+                            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                            view_formats: &[],
+                        });
+            let view = txture.create_view(&wgpu::TextureViewDescriptor::default());
+            // create pure white rgba imagebuffer
+            let rgba = image::RgbaImage::new(txture.width(), txture.height());
+            // write white space to texture 
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    aspect: wgpu::TextureAspect::All,
+                    texture: &txture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                },
+                &rgba,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * txture.width()),
+                    rows_per_image: Some(txture.height()),
+                },
+                size,
+            );
+
+            normal_texture = texture::Texture {
+                texture: txture,
+                sampler: device.create_sampler(
+                    &wgpu::SamplerDescriptor {
+                        address_mode_u: wgpu::AddressMode::ClampToEdge,
+                        address_mode_v: wgpu::AddressMode::ClampToEdge,
+                        address_mode_w: wgpu::AddressMode::ClampToEdge,
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Nearest,
+                        ..Default::default()
+                    }
+                ),
+                view,
+            };
+            println!("No normal texture found: defaulting to white texture");
+        }
 
         materials.push(model::Material::new (
             device,

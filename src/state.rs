@@ -5,7 +5,7 @@ use cgmath::prelude::*;
 use crate::texture;
 use crate::texture::Texture;
 use crate::camera::*;
-use crate::rotation::*;
+use crate::transformation::*;
 use crate::instancing::*;
 use crate::model::{ModelVertex, Vertex, DrawModel, Model};
 use crate::resources::load_model;
@@ -117,9 +117,9 @@ pub struct State {
     pub camera_bind_group: wgpu::BindGroup,
     pub camera_controller: CameraController,
     pub rotation: RotationDeg,
-    pub rotation_uniform: RotationUniform,
-    pub rotation_buffer: wgpu::Buffer,
-    pub rotation_bind_group: wgpu::BindGroup,
+    pub transformation_uniform: TransformationUniform,
+    pub transformation_buffer: wgpu::Buffer,
+    pub transformation_bind_group: wgpu::BindGroup,
     pub rotation_controller: RotationController,
     pub instances: Vec<Instance>,
     pub instance_buffer: wgpu::Buffer,
@@ -271,18 +271,19 @@ impl State {
         );
 
         let rotation: RotationDeg = RotationDeg::new();
-        let mut rotation_uniform = RotationUniform::new();
-        rotation_uniform.update_rotation(&rotation);
+        let mut transformation_uniform = TransformationUniform::new();
+        transformation_uniform.update_rotation(&rotation);
+        transformation_uniform.update_scaling(0.1);
 
-        let rotation_buffer = device.create_buffer_init(
+        let transformation_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Rotation Buffer"),
-                contents: bytemuck::cast_slice(&[rotation_uniform]),
+                contents: bytemuck::cast_slice(&[transformation_uniform]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }
         );
 
-        let rotation_bind_group_layout = device.create_bind_group_layout(
+        let transformation_bind_group_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
                 label: Some("Rotation Buffer Layout"),
                 entries: &[
@@ -300,16 +301,16 @@ impl State {
             }
         );
 
-        let rotation_bind_group = device.create_bind_group(
+        let transformation_bind_group = device.create_bind_group(
             &wgpu::BindGroupDescriptor {
-                layout: &rotation_bind_group_layout,
+                layout: &transformation_bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: rotation_buffer.as_entire_binding(),
+                        resource: transformation_buffer.as_entire_binding(),
                     }
                 ],
-                label: Some("Rotation Bind Group"),
+                label: Some("Transformation Bind Group"),
             }
         );
 
@@ -404,7 +405,7 @@ impl State {
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
-                    &rotation_bind_group_layout,
+                    &transformation_bind_group_layout,
                     &data_bind_group_layout,
                     &light_bind_group_layout,
                 ],
@@ -484,7 +485,8 @@ impl State {
         );
 
         let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-        let obj_model = load_model("cube.obj", &device, &queue, &texture_bind_group_layout).await.unwrap();
+        //let obj_model = load_model("cube.obj", &device, &queue, &texture_bind_group_layout).await.unwrap();
+        let obj_model = load_model("raphtalia.obj", &device, &queue, &texture_bind_group_layout).await.unwrap();
 
         Self {
             surface,
@@ -501,9 +503,9 @@ impl State {
             camera_bind_group,
             camera_controller,
             rotation,
-            rotation_uniform,
-            rotation_buffer,
-            rotation_bind_group,
+            transformation_uniform,
+            transformation_buffer,
+            transformation_bind_group,
             rotation_controller,
             instances,
             instance_buffer,
@@ -571,11 +573,11 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         ); 
         self.rotation_controller.update_matrix(&mut self.rotation, dt.as_secs_f32());
-        self.rotation_uniform.update_rotation(&self.rotation);
+        self.transformation_uniform.update_rotation(&self.rotation);
         self.queue.write_buffer(
-            &self.rotation_buffer,
+            &self.transformation_buffer,
             0,
-            bytemuck::cast_slice(&[self.rotation_uniform]),
+            bytemuck::cast_slice(&[self.transformation_uniform]),
         );
         self.data_uniform.update(dt.as_secs_f32());
         self.queue.write_buffer(
@@ -609,9 +611,9 @@ impl State {
                     ops: wgpu::Operations {
                         // set color based on mouse position
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
+                            r: 0.5,
+                            g: 0.5,
+                            b: 0.5,
                             a: 1.0, 
                         }),
                         store: true,
@@ -628,16 +630,16 @@ impl State {
             });
             
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            use crate::model::DrawLight;
+            /*use crate::model::DrawLight;
             
             render_pass.set_pipeline(&self.render_pipelines[1]); 
-            render_pass.draw_light_model(
+            (render_pass.draw_light_model(
                 &self.obj_model,
                 &[
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 ]
-            );
+            );*/
 
             render_pass.set_pipeline(&self.render_pipelines[0]);
             render_pass.draw_model_instanced(
@@ -645,7 +647,7 @@ impl State {
                 0..self.instances.len() as u32,
                 &[
                     &self.camera_bind_group,
-                    &self.rotation_bind_group,
+                    &self.transformation_bind_group,
                     &self.data_bind_group,
                     &self.light_bind_group,
                 ]

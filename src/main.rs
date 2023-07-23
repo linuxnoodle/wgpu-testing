@@ -2,7 +2,7 @@ mod engine;
 mod state;
 mod texture;
 mod camera;
-mod rotation;
+mod transformation;
 mod instancing;
 mod model;
 mod resources;

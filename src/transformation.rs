@@ -26,19 +26,25 @@ impl RotationDeg {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct RotationUniform{
+pub struct TransformationUniform{
     rotation: [[f32; 4]; 4],
+    scaling: [[f32; 4]; 4],
 }
 
-impl RotationUniform {
+impl TransformationUniform {
     pub fn new() -> Self {
         Self {
             rotation: cgmath::Matrix4::identity().into(),
+            scaling: cgmath::Matrix4::identity().into(),
         }
     }
 
     pub fn update_rotation(&mut self, rotation: &RotationDeg) {
         self.rotation = rotation.build_rotation_matrix().into();
+    }
+
+    pub fn update_scaling(&mut self, scaling_factor: f32){
+        self.scaling = cgmath::Matrix4::from_scale(scaling_factor).into();
     }
 }
 pub struct RotationController {

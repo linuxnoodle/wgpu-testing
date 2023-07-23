@@ -3,8 +3,9 @@ struct CameraUniform {
     view_proj: mat4x4<f32>,
 }
 
-struct RotationUniform {
+struct TransformationUniform {
     rot_mat: mat4x4<f32>,
+    scale_mat: mat4x4<f32>,
 }
 
 struct DataUniform {
@@ -22,7 +23,7 @@ struct Light {
 var<uniform> camera: CameraUniform;
 
 @group(2) @binding(0)
-var<uniform> rotation: RotationUniform;
+var<uniform> transformation: TransformationUniform;
 
 @group(3) @binding(0)
 var<uniform> data: DataUniform;
@@ -83,7 +84,7 @@ fn vs_main(
         world_normal,
     ));
 
-    let world_position = model_matrix * rotation.rot_mat * vec4<f32>(model.position, 1.0);
+    let world_position = model_matrix * transformation.scale_mat * transformation.rot_mat * vec4<f32>(model.position, 1.0);
 
     var out: VertexOutput;
     out.clip_position = camera.view_proj * world_position;
@@ -128,7 +129,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let specular_strength = pow(max(dot(tangent_normal, half_dir), 0.0), 32.0);
     let specular_color = specular_strength * light.color;
 
-    let result = (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+    //let result = (ambient_color + diffuse_color + specular_color) * object_color.xyz;
+    let result = object_color.xyz;
 
     return vec4<f32>(result, object_color.a);
 }
