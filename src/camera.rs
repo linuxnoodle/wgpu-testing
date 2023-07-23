@@ -99,7 +99,7 @@ impl CameraController {
         }
     }
 
-   pub fn update_camera(&self, camera: &mut Camera) {
+   pub fn update_camera(&self, camera: &mut Camera, delta_time: f32) {
         use cgmath::InnerSpace;
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
@@ -108,10 +108,10 @@ impl CameraController {
         // Prevents glitching when camera gets too close to the
         // center of the scene.
         if self.is_forward_pressed && forward_mag > self.speed {
-            camera.eye += forward_norm * self.speed;
+            camera.eye += forward_norm * self.speed * delta_time;
         }
         if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
+            camera.eye -= forward_norm * self.speed * delta_time;
         }
 
         let right = forward_norm.cross(camera.up);
@@ -124,10 +124,10 @@ impl CameraController {
             // Rescale the distance between the target and eye so 
             // that it doesn't change. The eye therefore still 
             // lies on the circle made by the target and eye.
-            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+            camera.eye = camera.target - (forward + right * self.speed * delta_time).normalize() * forward_mag;
         }
         if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+            camera.eye = camera.target - (forward - right * self.speed * delta_time).normalize() * forward_mag;
         }
     }
 }

@@ -12,6 +12,11 @@ struct DataUniform {
     iTime: f32,
 }
 
+struct Light {
+    position: vec3<f32>,
+    color: vec3<f32>
+}
+
 @group(1) @binding(0)
 var<uniform> camera: CameraUniform;
 
@@ -20,6 +25,9 @@ var<uniform> rotation: RotationUniform;
 
 @group(3) @binding(0)
 var<uniform> data: DataUniform;
+
+@group(4) @binding(0)
+var<uniform> light: Light;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -63,9 +71,12 @@ var s_diffuse: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //return textureSample(t_diffuse, s_diffuse, in.tex_coords);
-     return vec4(0.5 + 0.5 * cos(data.iTime + in.tex_coords.x),
-                 0.5 + 0.5 * cos(data.iTime + in.tex_coords.y + 2.0),
-                 0.5 + 0.5 * cos(data.iTime + in.tex_coords.x + 4.0),
-                 1.0
-            ) * textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    //let rainbow = vec4(0.5 + 0.5 * cos(data.iTime + in.tex_coords.x),
+    //                   0.5 + 0.5 * cos(data.iTime + in.tex_coords.y + 2.0),
+    //                   0.5 + 0.5 * cos(data.iTime + in.tex_coords.x + 4.0),
+    //                   1.0,
+    //              );
+    let obj_color = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    let color = 0.1 * light.color * obj_color.xyz;
+    return vec4<f32>(color, obj_color.a);
 }

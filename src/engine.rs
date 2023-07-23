@@ -6,6 +6,8 @@ use winit::{
     window::WindowBuilder,
 };
 
+const FRAMERATE_CAP: f32 = 144.0;
+const FRAMETIME_CAP: f32 = 1.0/FRAMERATE_CAP;
 pub async fn run(){
     env_logger::init();
     let event_loop = EventLoop::new();
@@ -45,6 +47,15 @@ pub async fn run(){
                     Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     Err(e) => eprintln!("{:?}", e),
+                }
+                // wait until delta time is 1/FRAMERATE_CAP
+                // TODO: still not fully sure that this is working, double check later
+                if state.data_uniform.delta_time < FRAMETIME_CAP {
+                    std::thread::sleep(
+                        std::time::Duration::from_micros(
+                            ((FRAMETIME_CAP - state.data_uniform.delta_time) * 1000000.0) as u64
+                        )
+                    );
                 }
             }
             Event::MainEventsCleared => {

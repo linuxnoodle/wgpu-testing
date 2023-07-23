@@ -1,6 +1,5 @@
 use cgmath::SquareMatrix;
 use winit::event::{KeyboardInput, VirtualKeyCode, ElementState, WindowEvent};
-use crate::camera::OPENGL_TO_WGPU_MATRIX;
 
 pub struct RotationDeg {
     pub yaw: f32,
@@ -21,7 +20,7 @@ impl RotationDeg {
         let yaw = cgmath::Matrix4::from_angle_y(cgmath::Deg(self.yaw));
         let pitch = cgmath::Matrix4::from_angle_x(cgmath::Deg(self.pitch));
         let roll = cgmath::Matrix4::from_angle_z(cgmath::Deg(self.roll));
-        return OPENGL_TO_WGPU_MATRIX * yaw * pitch * roll;
+        return yaw * pitch * roll;
     }
 }
 
@@ -94,18 +93,18 @@ impl RotationController {
             _ => false,
         }
     }
-   pub fn update_matrix(&mut self, rotation: &mut RotationDeg) {
+   pub fn update_matrix(&mut self, rotation: &mut RotationDeg, delta_time: f32) {
         if self.is_forward_pressed {
-            rotation.pitch += self.speed;
+            rotation.pitch += self.speed * delta_time;
         }
         if self.is_backward_pressed {
-            rotation.pitch -= self.speed;
+            rotation.pitch -= self.speed * delta_time;
         }
         if self.is_left_pressed {
-            rotation.yaw += self.speed;
+            rotation.yaw += self.speed * delta_time;
         }
         if self.is_right_pressed {
-            rotation.yaw -= self.speed;
+            rotation.yaw -= self.speed * delta_time;
         }
     } 
 }

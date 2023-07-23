@@ -19,7 +19,7 @@ impl Instance {
         InstanceRaw {
             model: (Matrix4::from_translation(self.position)
                 * Matrix4::from(self.rotation)
-                * Matrix4::from_scale(0.25))
+                * Matrix4::from_scale(0.5))
             .into(),
         }
     }
