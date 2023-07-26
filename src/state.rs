@@ -8,7 +8,7 @@ use crate::camera::*;
 use crate::transformation::*;
 use crate::instancing::*;
 use crate::model::{ModelVertex, Vertex, DrawModel, Model};
-use crate::resources::load_model;
+use crate::resources::*;
 
 fn create_render_pipeline(
     device: &wgpu::Device,
@@ -273,7 +273,7 @@ impl State {
         let rotation: RotationDeg = RotationDeg::new();
         let mut transformation_uniform = TransformationUniform::new();
         transformation_uniform.update_rotation(&rotation);
-        transformation_uniform.update_scaling(0.1);
+        transformation_uniform.update_scaling(1.0);
 
         let transformation_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -485,8 +485,18 @@ impl State {
         );
 
         let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-        //let obj_model = load_model("cube.obj", &device, &queue, &texture_bind_group_layout).await.unwrap();
-        let obj_model = load_model("raphtalia.obj", &device, &queue, &texture_bind_group_layout).await.unwrap();
+        let obj_model = load_model_obj("raphtalia.obj", 
+                                   "raphtalia",
+                                   &device,
+                                   &queue,
+                                   &texture_bind_group_layout
+                        ).await.unwrap();
+        /*let obj_model = load_model_fbx("Agnes.fbx", 
+                                   "agnes",
+                                   &device,
+                                   &queue,
+                                   &texture_bind_group_layout
+                        ).await.unwrap();*/
 
         Self {
             surface,

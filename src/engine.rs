@@ -13,6 +13,18 @@ pub async fn run(){
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
+    let mut imgui = imgui::Context::create();
+    let mut platform = imgui_winit_support::WinitPlatform::init(&mut imgui);
+    platform.attach_window(
+        imgui.io_mut(),
+        &window,
+        imgui_winit_support::HiDpiMode::Default,
+    );
+    imgui.set_ini_filename(None);
+
+    let hidpi_factor = window.scale_factor();
+    imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
+
     let mut state = State::new(window).await;
     let mut last_render_time = instant::Instant::now();
 
